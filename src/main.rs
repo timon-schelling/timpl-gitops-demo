@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use structstruck::strike as strc;
+
 use timpl::*;
 
 pub mod consts {
