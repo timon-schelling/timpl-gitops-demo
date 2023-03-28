@@ -68,6 +68,45 @@ spec:
   - port: 80
     targetPort: 80
 ---
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: ingress
+  namespace: ingress-system
+spec:
+  interval: 1m
+  url: "https://helm.nginx.com/stable"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: ingress
+  namespace: ingress-system
+spec:
+  chart:
+    spec:
+      sourceRef:
+        kind: HelmRepository
+        name: ingress
+      chart: nginx-ingress
+      version: 0.15.2
+  interval: 1m
+  values:
+    controller:
+      enableCertManager: true
+      name: ingress
+      enableLatencyMetrics: true
+      config:
+        name: ingress
+      service:
+        name: ingress
+      serviceAccount:
+        name: ingress
+      reportIngressStatus:
+        leaderElectionLockName: ingress-leader-election
+    prometheus:
+      create: false
+---
 apiVersion: k8s.nginx.org/v1
 kind: VirtualServer
 metadata:
