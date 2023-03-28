@@ -1,36 +1,30 @@
-use timpl::*;
+use std::fmt::Display;
+
 use structstruck::strike as strc;
+use timpl::*;
 
 pub mod consts {
     pub mod apps {
         pub const NAMESPACE: &str = "default";
         pub mod frontend {
             pub const PATH: &str = "/";
-            pub mod service {
-                pub const NAME: &str = "frontend";
-                pub const PORT: u16 = 80;
-            }
+            pub const NAME: &str = "frontend";
+            pub const PORT: u16 = 80;
         }
         pub mod backend {
             pub const PATH: &str = "/api";
-            pub mod service {
-                pub const NAME: &str = "backend";
-                pub const PORT: u16 = 80;
-            }
+            pub const NAME: &str = "backend";
+            pub const PORT: u16 = 80;
         }
     }
     pub mod infrastructure {
-        pub mod ingress {
-
-        }
+        pub mod ingress {}
         pub mod monitoring {
             pub const NAMESPACE: &str = "monitoring";
             pub mod dashboard {
                 pub const PATH: &str = "/monitoring";
-                pub mod service {
-                    pub const NAME: &str = "monitoring-dashboard";
-                    pub const PORT: u16 = 80;
-                }
+                pub const NAME: &str = "dashboard";
+                pub const PORT: u16 = 80;
             }
         }
     }
@@ -40,11 +34,53 @@ trait Package {
     fn resources(&self, config: &ClusterConfig) -> Vec<String>;
 }
 
+strc! {
+    #[derive(Clone)]
+    struct Image {
+        reference: #[derive(Clone)] struct ImageRef {
+            registry: String,
+            name: String,
+            tag: String,
+        },
+        pull_policy: #[derive(Clone)] enum {
+            Always,
+            IfNotPresent,
+            Never,
+        },
+    }
+}
+
+impl Display for ImageRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&timpl! { { self.registry }/{ self.name }:{self.tag } })
+    }
+}
+
+impl Display for PullPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            PullPolicy::Always => "Always",
+            PullPolicy::IfNotPresent => "IfNotPresent",
+            PullPolicy::Never => "Never",
+        })
+    }
+}
+
 #[derive(Clone)]
-struct Image {
-    registry: String,
-    name: String,
-    tag: String,
+enum ServiceType {
+    ClusterIP,
+    NodePort,
+    LoadBalancer,
+}
+
+impl Display for ServiceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ServiceType::ClusterIP => "ClusterIP",
+            ServiceType::NodePort => "NodePort",
+            ServiceType::LoadBalancer => "LoadBalancer",
+        })
+    }
 }
 
 strc! {
@@ -63,11 +99,13 @@ strc! {
                         enabled: bool,
                         replicas: u16,
                         image: Image,
+                        service_type: ServiceType,
                     },
                     backend: #[derive(Clone)] struct {
                         enabled: bool,
                         replicas: u16,
                         image: Image,
+                        service_type: ServiceType,
                     },
                 },
                 infrastructure: #[derive(Clone)] struct {
@@ -78,10 +116,15 @@ strc! {
                     },
                     monitoring: #[derive(Clone)] struct {
                         enabled: bool,
-                        tracing: bool,
-                        logging: bool,
-                        metrics: bool,
-                        dashboard: bool,
+                        sources: #[derive(Clone)] struct {
+                            tracing: bool,
+                            logging: bool,
+                            metrics: bool,
+                        },
+                        dashboard: #[derive(Clone)] struct {
+                            enabled: bool,
+                            service_type: ServiceType,
+                        }
                     },
                 },
             },
@@ -133,8 +176,8 @@ impl Package for IngressConfigPackage {
                 if config.manifest.apps.frontend.enabled {
                     services.push(ServiceMapping {
                         namespace: consts::apps::NAMESPACE.to_string(),
-                        name: consts::apps::frontend::service::NAME.to_string(),
-                        port: consts::apps::frontend::service::PORT,
+                        name: consts::apps::frontend::NAME.to_string(),
+                        port: consts::apps::frontend::PORT,
                         path: consts::apps::frontend::PATH.to_string(),
                     })
                 }
@@ -142,18 +185,19 @@ impl Package for IngressConfigPackage {
                 if config.manifest.apps.backend.enabled {
                     services.push(ServiceMapping {
                         namespace: consts::apps::NAMESPACE.to_string(),
-                        name: consts::apps::backend::service::NAME.to_string(),
-                        port: consts::apps::backend::service::PORT,
+                        name: consts::apps::backend::NAME.to_string(),
+                        port: consts::apps::backend::PORT,
                         path: consts::apps::backend::PATH.to_string(),
                     })
                 }
 
-                if config.manifest.infrastructure.monitoring.dashboard {
+                if config.manifest.infrastructure.monitoring.enabled
+                    && config.manifest.infrastructure.monitoring.dashboard.enabled
+                {
                     services.push(ServiceMapping {
                         namespace: consts::infrastructure::monitoring::NAMESPACE.to_string(),
-                        name: consts::infrastructure::monitoring::dashboard::service::NAME
-                            .to_string(),
-                        port: consts::infrastructure::monitoring::dashboard::service::PORT,
+                        name: consts::infrastructure::monitoring::dashboard::NAME.to_string(),
+                        port: consts::infrastructure::monitoring::dashboard::PORT,
                         path: consts::infrastructure::monitoring::dashboard::PATH.to_string(),
                     })
                 }
@@ -200,27 +244,132 @@ impl Package for IngressConfigPackage {
     }
 }
 
-fn main() {
+struct FrontendPackage {}
 
+impl Package for FrontendPackage {
+    fn resources(&self, config: &ClusterConfig) -> Vec<String> {
+        let mut res = vec![];
+
+        res.push(timpl! {
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              namespace: { consts::apps::NAMESPACE }
+              name: { consts::apps::frontend::NAME }
+            spec:
+              replicas: { config.manifest.apps.frontend.replicas }
+              selector:
+                matchLabels:
+                  app: { consts::apps::frontend::NAME }
+              template:
+                metadata:
+                  labels:
+                    app: { consts::apps::frontend::NAME }
+                spec:
+                  containers:
+                  - name: { consts::apps::frontend::NAME }
+                    image: { config.manifest.apps.frontend.image.reference }
+                    imagePullPolicy: { config.manifest.apps.frontend.image.pull_policy }
+                    ports:
+                    - containerPort: { consts::apps::frontend::PORT }
+        });
+
+        res.push(timpl! {
+            apiVersion: v1
+            kind: Service
+            metadata:
+              namespace: { consts::apps::NAMESPACE }
+              name: { consts::apps::frontend::NAME }
+            spec:
+              type: { config.manifest.apps.backend.service_type }
+              selector:
+                app: { consts::apps::frontend::NAME }
+              ports:
+              - port: { consts::apps::frontend::PORT }
+                targetPort: { consts::apps::frontend::PORT }
+        });
+
+        res
+    }
+}
+
+struct BackendPackage {}
+
+impl Package for BackendPackage {
+    fn resources(&self, config: &ClusterConfig) -> Vec<String> {
+        let mut res = vec![];
+
+        res.push(timpl! {
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              namespace: { consts::apps::NAMESPACE }
+              name: { consts::apps::backend::NAME }
+            spec:
+              replicas: { config.manifest.apps.backend.replicas }
+              selector:
+                matchLabels:
+                  app: { consts::apps::backend::NAME }
+              template:
+                metadata:
+                  labels:
+                    app: { consts::apps::backend::NAME }
+                spec:
+                  containers:
+                  - name: { consts::apps::backend::NAME }
+                    image: { config.manifest.apps.backend.image.reference }
+                    imagePullPolicy: { config.manifest.apps.backend.image.pull_policy }
+                    ports:
+                    - containerPort: { consts::apps::backend::PORT }
+        });
+
+        res.push(timpl! {
+            apiVersion: v1
+            kind: Service
+            metadata:
+              namespace: { consts::apps::NAMESPACE }
+              name: { consts::apps::backend::NAME }
+            spec:
+              type: { config.manifest.apps.backend.service_type }
+              selector:
+                app: { consts::apps::backend::NAME }
+              ports:
+              - port: { consts::apps::backend::PORT }
+                targetPort: { consts::apps::backend::PORT }
+        });
+
+        res
+    }
+}
+
+fn main() {
     let defalt_manifest = Manifest {
         apps: Apps {
             frontend: Frontend {
                 enabled: true,
                 replicas: 1,
                 image: Image {
-                    registry: "docker.io".to_string(),
-                    name: "frontend".to_string(),
-                    tag: "latest".to_string(),
+                    reference: ImageRef {
+                        registry: "cr.example.com".to_string(),
+                        name: "frontend".to_string(),
+                        tag: "latest".to_string(),
+                    },
+                    pull_policy: PullPolicy::Always,
                 },
+                service_type: ServiceType::ClusterIP,
             },
             backend: Backend {
                 enabled: true,
                 replicas: 1,
                 image: Image {
-                    registry: "docker.io".to_string(),
-                    name: "backend".to_string(),
-                    tag: "latest".to_string(),
+                    reference: ImageRef {
+                        registry: "cr.example.com".to_string(),
+                        name: "backend".to_string(),
+                        tag: "latest".to_string(),
+                    },
+                    pull_policy: PullPolicy::Always,
                 },
+                service_type: ServiceType::ClusterIP,
             },
         },
         infrastructure: Infrastructure {
@@ -231,10 +380,15 @@ fn main() {
             },
             monitoring: Monitoring {
                 enabled: true,
-                tracing: true,
-                logging: true,
-                metrics: true,
-                dashboard: true,
+                sources: Sources {
+                    tracing: true,
+                    logging: true,
+                    metrics: true,
+                },
+                dashboard: Dashboard {
+                    enabled: true,
+                    service_type: ServiceType::ClusterIP,
+                },
             },
         },
     };
@@ -244,10 +398,13 @@ fn main() {
         manifest: {
             let mut manifest = defalt_manifest.clone();
             manifest.apps.frontend.replicas = 3;
-            manifest.apps.frontend.image.tag = "prod-latest".to_string();
+            manifest.apps.frontend.image.reference.tag = "prod-latest".to_string();
             manifest.apps.backend.replicas = 3;
-            manifest.apps.backend.image.tag = "prod-latest".to_string();
-            manifest.infrastructure.ingress.domains = vec!["prod.app.example.com".to_string(), "app.example.com".to_string()];
+            manifest.apps.backend.image.reference.tag = "prod-latest".to_string();
+            manifest.infrastructure.ingress.domains = vec![
+                "prod.app.example.com".to_string(),
+                "app.example.com".to_string(),
+            ];
             manifest
         },
     };
@@ -257,9 +414,9 @@ fn main() {
         manifest: {
             let mut manifest = defalt_manifest.clone();
             manifest.apps.frontend.replicas = 2;
-            manifest.apps.frontend.image.tag = "dev-latest".to_string();
+            manifest.apps.frontend.image.reference.tag = "dev-latest".to_string();
             manifest.apps.backend.replicas = 2;
-            manifest.apps.backend.image.tag = "dev-latest".to_string();
+            manifest.apps.backend.image.reference.tag = "dev-latest".to_string();
             manifest.infrastructure.ingress.domains = vec!["dev.app.example.com".to_string()];
             manifest
         },
@@ -270,9 +427,9 @@ fn main() {
         manifest: {
             let mut manifest = defalt_manifest.clone();
             manifest.apps.frontend.replicas = 1;
-            manifest.apps.frontend.image.tag = "test-latest".to_string();
+            manifest.apps.frontend.image.reference.tag = "test-latest".to_string();
             manifest.apps.backend.replicas = 1;
-            manifest.apps.backend.image.tag = "test-latest".to_string();
+            manifest.apps.backend.image.reference.tag = "test-latest".to_string();
             manifest.infrastructure.ingress.domains = vec!["test.app.example.com".to_string()];
             manifest
         },
@@ -283,9 +440,9 @@ fn main() {
         manifest: {
             let mut manifest = defalt_manifest.clone();
             manifest.apps.frontend.replicas = 1;
-            manifest.apps.frontend.image.tag = "local-latest".to_string();
+            manifest.apps.frontend.image.reference.tag = "local-latest".to_string();
             manifest.apps.backend.replicas = 1;
-            manifest.apps.backend.image.tag = "local-latest".to_string();
+            manifest.apps.backend.image.reference.tag = "local-latest".to_string();
             manifest.infrastructure.ingress.domains = vec!["localhost".to_string()];
             manifest.infrastructure.ingress.tls = false;
             manifest
@@ -297,9 +454,9 @@ fn main() {
         manifest: {
             let mut manifest = defalt_manifest.clone();
             manifest.apps.frontend.replicas = 1;
-            manifest.apps.frontend.image.tag = "minimal-latest".to_string();
+            manifest.apps.frontend.image.reference.tag = "minimal-latest".to_string();
             manifest.apps.backend.replicas = 1;
-            manifest.apps.backend.image.tag = "minimal-latest".to_string();
+            manifest.apps.backend.image.reference.tag = "minimal-latest".to_string();
             manifest.infrastructure.ingress.domains = vec!["localhost".to_string()];
             manifest.infrastructure.ingress.tls = false;
             manifest.infrastructure.monitoring.enabled = false;
@@ -307,13 +464,7 @@ fn main() {
         },
     };
 
-    let clusters = vec![
-        prod,
-        dev,
-        test,
-        local,
-        minimal,
-    ];
+    let clusters = vec![prod, dev, test, local, minimal];
 
     let folder = "clusters";
     let _ = std::fs::remove_dir_all(&folder);
@@ -322,7 +473,12 @@ fn main() {
         let folder = format!("{}/{}", folder, cluster.stage.to_string());
         std::fs::create_dir_all(&folder).unwrap();
         std::fs::write(format!("{}/resources.yaml", folder), {
-            let mut res = vec![IngressConfigPackage{}]
+            let packages: Vec<Box<dyn Package>> = vec![
+                Box::new(FrontendPackage {}),
+                Box::new(BackendPackage {}),
+                Box::new(IngressConfigPackage {}),
+            ];
+            let mut res = packages
                 .iter()
                 .map(|p| p.resources(cluster))
                 .flatten()

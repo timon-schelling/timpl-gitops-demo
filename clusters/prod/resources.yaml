@@ -1,0 +1,199 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: cr.example.com/frontend:prod-latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: cr.example.com/backend:prod-latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: com-example-app-prod
+  namespace: ingress
+spec:
+  host: prod.app.example.com
+  tls:
+    secret: com-example-app-prod-tls
+  routes:
+  - path: /
+    route: default/com-example-app-prod-frontend
+  - path: /api
+    route: default/com-example-app-prod-backend
+  - path: /monitoring
+    route: monitoring/com-example-app-prod-dashboard
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: com-example-app-prod-frontend
+  namespace: default
+spec:
+  host: prod.app.example.com
+  upstreams:
+  - name: frontend
+    service: frontend
+    port: 80
+  subroutes:
+  - path: /
+    action:
+        pass: frontend
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: com-example-app-prod-backend
+  namespace: default
+spec:
+  host: prod.app.example.com
+  upstreams:
+  - name: backend
+    service: backend
+    port: 80
+  subroutes:
+  - path: /api
+    action:
+        pass: backend
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: com-example-app-prod-dashboard
+  namespace: monitoring
+spec:
+  host: prod.app.example.com
+  upstreams:
+  - name: dashboard
+    service: dashboard
+    port: 80
+  subroutes:
+  - path: /monitoring
+    action:
+        pass: dashboard
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: com-example-app
+  namespace: ingress
+spec:
+  host: app.example.com
+  tls:
+    secret: com-example-app-tls
+  routes:
+  - path: /
+    route: default/com-example-app-frontend
+  - path: /api
+    route: default/com-example-app-backend
+  - path: /monitoring
+    route: monitoring/com-example-app-dashboard
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: com-example-app-frontend
+  namespace: default
+spec:
+  host: app.example.com
+  upstreams:
+  - name: frontend
+    service: frontend
+    port: 80
+  subroutes:
+  - path: /
+    action:
+        pass: frontend
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: com-example-app-backend
+  namespace: default
+spec:
+  host: app.example.com
+  upstreams:
+  - name: backend
+    service: backend
+    port: 80
+  subroutes:
+  - path: /api
+    action:
+        pass: backend
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: com-example-app-dashboard
+  namespace: monitoring
+spec:
+  host: app.example.com
+  upstreams:
+  - name: dashboard
+    service: dashboard
+    port: 80
+  subroutes:
+  - path: /monitoring
+    action:
+        pass: dashboard

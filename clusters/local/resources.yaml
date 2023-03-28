@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: cr.example.com/frontend:local-latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: cr.example.com/backend:local-latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: localhost
+  namespace: ingress
+spec:
+  host: localhost
+  tls:
+    secret: localhost-tls
+  routes:
+  - path: /
+    route: default/localhost-frontend
+  - path: /api
+    route: default/localhost-backend
+  - path: /monitoring
+    route: monitoring/localhost-dashboard
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: localhost-frontend
+  namespace: default
+spec:
+  host: localhost
+  upstreams:
+  - name: frontend
+    service: frontend
+    port: 80
+  subroutes:
+  - path: /
+    action:
+        pass: frontend
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: localhost-backend
+  namespace: default
+spec:
+  host: localhost
+  upstreams:
+  - name: backend
+    service: backend
+    port: 80
+  subroutes:
+  - path: /api
+    action:
+        pass: backend
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: localhost-dashboard
+  namespace: monitoring
+spec:
+  host: localhost
+  upstreams:
+  - name: dashboard
+    service: dashboard
+    port: 80
+  subroutes:
+  - path: /monitoring
+    action:
+        pass: dashboard
