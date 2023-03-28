@@ -404,7 +404,7 @@ impl Package for IngressConfigPackage {
 }
 
 fn main() {
-    let defalt_manifest = Manifest {
+    let default_manifest = Manifest {
         apps: Apps {
             frontend: Frontend {
                 enabled: true,
@@ -457,7 +457,7 @@ fn main() {
     let prod = ClusterConfig {
         stage: Stage::Prod,
         manifest: {
-            let mut manifest = defalt_manifest.clone();
+            let mut manifest = default_manifest.clone();
             manifest.apps.frontend.replicas = 3;
             manifest.apps.frontend.image.reference.tag = "prod-latest".to_string();
             manifest.apps.backend.replicas = 3;
@@ -473,7 +473,7 @@ fn main() {
     let dev = ClusterConfig {
         stage: Stage::Dev,
         manifest: {
-            let mut manifest = defalt_manifest.clone();
+            let mut manifest = default_manifest.clone();
             manifest.apps.frontend.replicas = 2;
             manifest.apps.frontend.image.reference.tag = "dev-latest".to_string();
             manifest.apps.backend.replicas = 2;
@@ -486,7 +486,7 @@ fn main() {
     let test = ClusterConfig {
         stage: Stage::Test,
         manifest: {
-            let mut manifest = defalt_manifest.clone();
+            let mut manifest = default_manifest.clone();
             manifest.apps.frontend.replicas = 1;
             manifest.apps.frontend.image.reference.tag = "test-latest".to_string();
             manifest.apps.backend.replicas = 1;
@@ -499,7 +499,7 @@ fn main() {
     let local = ClusterConfig {
         stage: Stage::Local,
         manifest: {
-            let mut manifest = defalt_manifest.clone();
+            let mut manifest = default_manifest.clone();
             manifest.apps.frontend.replicas = 1;
             manifest.apps.frontend.image.reference.tag = "local-latest".to_string();
             manifest.apps.backend.replicas = 1;
@@ -513,7 +513,7 @@ fn main() {
     let minimal = ClusterConfig {
         stage: Stage::Minimal,
         manifest: {
-            let mut manifest = defalt_manifest.clone();
+            let mut manifest = default_manifest.clone();
             manifest.apps.frontend.replicas = 1;
             manifest.apps.frontend.image.reference.tag = "minimal-latest".to_string();
             manifest.apps.backend.replicas = 1;
