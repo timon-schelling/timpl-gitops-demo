@@ -15,6 +15,7 @@ fi
 rm -r tmp
 mkdir tmp
 cd tmp
+echo "*" > .gitignore
 
 helm repo add nginx https://helm.nginx.com/stable
 helm repo add jetstack https://charts.jetstack.io
