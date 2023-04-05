@@ -1,8 +1,14 @@
 #!/usr/bin/env sh
 
 if [ "$1" = "host" ]; then
-    docker run -v "$(pwd):/root/pwd" -w /root/pwd --entrypoint sh alpine/helm ./update container
-    sudo chown -R "$USER:$USER" .
+    docker run \
+        -v "$(pwd):/root/pwd" \
+        -e "UID=$(id -u $USER)" \
+        -e "GID=$(id -g $USER)" \
+        -w /root/pwd \
+        --entrypoint sh \
+        alpine/helm \
+        ./update container
     exit 0
 fi
 
@@ -25,6 +31,8 @@ helm repo add grafana https://grafana.github.io/helm-charts
 
 helm repo update
 
+set -x
+
 helm pull nginx/nginx-ingress
 helm pull jetstack/cert-manager
 helm pull opentelemetry/opentelemetry-collector
@@ -33,3 +41,5 @@ helm pull grafana/promtail
 helm pull grafana/tempo
 helm pull bitnami/kube-prometheus
 helm pull bitnami/grafana-operator
+
+chown -R "$UID:$GID" .
