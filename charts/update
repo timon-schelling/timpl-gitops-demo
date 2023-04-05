@@ -1,0 +1,34 @@
+#!/usr/bin/env sh
+
+if [ "$1" = "host" ]; then
+    docker run -v "$(pwd):/root/pwd" -w /root/pwd --entrypoint sh alpine/helm ./update container
+    sudo chown -R "$USER:$USER" .
+    exit 0
+fi
+
+if [ "$1" != "container" ]; then
+    cd "$(dirname "$0")"
+    ./update host
+    exit 0
+fi
+
+rm -r tmp
+mkdir tmp
+cd tmp
+
+helm repo add nginx https://helm.nginx.com/stable
+helm repo add jetstack https://charts.jetstack.io
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo add opentelemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+
+helm repo update
+
+helm pull nginx/nginx-ingress
+helm pull jetstack/cert-manager
+helm pull opentelemetry/opentelemetry-collector
+helm pull grafana/loki
+helm pull grafana/promtail
+helm pull grafana/tempo
+helm pull bitnami/kube-prometheus
+helm pull bitnami/grafana-operator
