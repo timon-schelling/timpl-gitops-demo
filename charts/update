@@ -42,4 +42,8 @@ helm pull grafana/tempo
 helm pull bitnami/kube-prometheus
 helm pull bitnami/grafana-operator
 
+helm template mginx/nginx-ingress -s
+
 chown -R "$UID:$GID" .
+
+for f in *.tgz; do tar -xzvf "$f"; done

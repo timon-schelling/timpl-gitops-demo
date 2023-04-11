@@ -132,7 +132,7 @@ strc! {
                         dashboard: #[derive(Clone)] struct {
                             enabled: bool,
                             service_type: ServiceType,
-                        }
+                        },
                     },
                 },
             },
