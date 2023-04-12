@@ -1,5 +1,3 @@
-use std::process::exit;
-
 #[path ="src/lib.rs"]
 mod lib;
 
