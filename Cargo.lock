@@ -134,10 +134,24 @@ dependencies = [
 name = "timpl-gitops-demo"
 version = "0.1.0"
 dependencies = [
- "flate2",
+ "timpl-gitops-demo-gen-base",
+ "timpl-gitops-demo-gen-helm",
+]
+
+[[package]]
+name = "timpl-gitops-demo-gen-base"
+version = "0.1.0"
+dependencies = [
  "structstruck",
- "tar-no-std",
  "timpl",
+]
+
+[[package]]
+name = "timpl-gitops-demo-gen-helm"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "tar-no-std",
 ]
 
 [[package]]

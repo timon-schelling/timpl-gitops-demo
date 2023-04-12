@@ -3,8 +3,12 @@ name = "timpl-gitops-demo"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
-timpl = { version = "0.1.0-alpha.2" }
-structstruck = "0.4"
-flate2 = "1.0"
-tar-no-std = "0.1.8"
+[workspace]
+members = [
+    "gen/base",
+    "gen/helm",
+]
+
+[build-dependencies]
+timpl-gitops-demo-gen-base = { path = "gen/base" }
+timpl-gitops-demo-gen-helm = { path = "gen/helm" }

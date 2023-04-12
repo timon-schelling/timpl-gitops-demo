@@ -1,0 +1,10 @@
+[package]
+name = "timpl-gitops-demo-gen-base"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+
+[dependencies]
+timpl = { version = "0.1.0-alpha.2" }
+structstruck = "0.4"

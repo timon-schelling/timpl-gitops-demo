@@ -1,0 +1,10 @@
+[package]
+name = "timpl-gitops-demo-gen-helm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+
+[dependencies]
+flate2 = "1.0"
+tar-no-std = "0.1.8"
