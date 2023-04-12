@@ -4,11 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [
-    "gen/base",
-    "gen/helm",
-]
+members = ["gen/base", "gen/helm"]
 
 [build-dependencies]
+build_script = "0.2"
+timpl-gitops-demo-gen-base = { path = "gen/base" }
+timpl-gitops-demo-gen-helm = { path = "gen/helm" }
+
+[dependencies]
 timpl-gitops-demo-gen-base = { path = "gen/base" }
 timpl-gitops-demo-gen-helm = { path = "gen/helm" }

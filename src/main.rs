@@ -1,1 +1,6 @@
-fn main() {}
+#[path ="lib.rs"]
+mod lib;
+
+fn main() {
+    lib::build();
+}
