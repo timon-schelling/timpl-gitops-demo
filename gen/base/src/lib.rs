@@ -1,3 +1,5 @@
+#![allow(clippy::vec_init_then_push)]
+
 use std::fmt::Display;
 
 use structstruck::strike as strc;
@@ -149,8 +151,7 @@ impl Deployment {
     pub fn resources(&self) -> Vec<String> {
         self.packages
             .iter()
-            .map(|package| package.resources(&self.config))
-            .flatten()
+            .flat_map(|package| package.resources(&self.config))
             .collect()
     }
 }
