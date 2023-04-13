@@ -40,10 +40,6 @@ pub mod consts {
     }
 }
 
-// pub enum Output {
-
-// }
-
 pub trait Package {
     fn resources(&self, config: &ClusterConfig) -> Vec<String>;
 }
